@@ -1,7 +1,8 @@
 import re
-from itertools import combinations
 import sys
-from getopt import getopt
+import os # used for terminal size
+import getopt as go
+from itertools import combinations
 
 def graph_from_file(filename: str) -> dict:
     """ reads an .apx file and return the according graph """
@@ -15,13 +16,14 @@ def graph_from_file(filename: str) -> dict:
         # unpacking pat (re.Match)
         typ, point, *_ = pat  # typ = "arg" or "att", point = [A-Z] or [A-Z],[A-Z]
         if typ == "arg":
-            graph[point] = []
+            graph[point] = set() # Set instead of list to keep uniqueness among attacks
         elif typ == "att":
-            graph[point[0]].append(point[-1])
+            graph[point[0]].add(point[-1])
+    
     return graph
 
 
-def create_powerset(keys: list|set) -> list[tuple]:
+def create_powerset(keys) -> list[tuple]:
     """ Return all set possible from a given list/set """
     return [s for x in range(len(keys)+1) for s in list(combinations(keys, x))]
 
@@ -77,64 +79,108 @@ def is_stable(graph: dict, arg_set: set) -> bool:
         return set(attacking) == set(should_attack)
     return False
 
+# Created to make handleling errors a bit cleaner
+class HandleException(Exception):...
 
 def handle_entries():
     """ Handle every args from the execution command line """
-    # Get all the options from command line
-    opts = dict(getopt(sys.argv[1:] , "p:f:a:d",["debug"])[0]) 
-    
-    graph = graph_from_file(opts["-f"])
-    powerset = create_powerset(graph.keys())
-    admissible = [x for x in powerset if is_admissible(graph, set(x)) ]
-    complete = [x for x in powerset if is_complete(graph, set(x))]
-    stable = [x for x in powerset if is_stable(graph, set(x))]
+    try:
+        # Get all the options from command line
+        opts = dict(go.getopt(sys.argv[1:] , "p:f:a:dh",["debug", "help"])[0]) 
+        # print(opts)
+        try:
+            
+            # Help Menu
+            if "-h" in opts.keys() or "--help" in opts.keys():
+                    printing = f"\033[1m Help menu\033[0m".center(os.get_terminal_size()[0])+"\n\n" # Centered on terminal width, bold txt
+                    printing += "Usage : python3 main.py -p [param] -f [filepath] -a [args]\n"
+                    printing += "Options:\n"
+                    printing += "\t\033[1m-p [param]\033[0m : Solves the param given. Can choose between [VE-CO, DC-CO, DS-CO, VE-ST, DC-ST, DS-ST]\n"
+                    printing += "\t\033[1m-f [filepath]\033[0m : Uses the file as input file for the graph. Must be a `.apx` type of file !\n"
+                    printing += "\t\033[1m-a [args]\033[0m : Uses args as a set for the param solver.\n"
+                    printing += "\t\033[1m-d, --debug\033[0m : Print graph, powerset, admissible extensions, complete extensions and stable extensions.\n"
+                    printing += "\t\033[1m-h, --help\033[0m : Print out the help menu.\n\n"
+                    printing += "Debug usage : python3 main.py -d -f [filepath]\n"
+                    printing += "\x1B[3m*Note that options can be passed in any order*\x1B[0m"
+                    print(printing)
+                    return -1
 
-    if "-p" in opts.keys():
-        points = opts["-a"].upper().split(",")
+            if "-f" not in opts.keys():
+                raise HandleException("No file supplied, use -f to supply file")
+            else:
+                graph = graph_from_file(opts["-f"])
+                powerset = create_powerset(graph.keys())
+                admissible = [x for x in powerset if is_admissible(graph, set(x))]
+                complete = [x for x in powerset if is_complete(graph, set(x))]
+                stable = [x for x in powerset if is_stable(graph, set(x))]
 
-        match opts["-p"]:
-            case "VE-CO":
-                return is_complete(graph, set(points))
+                if "-d" in opts.keys() or "--debug" in opts.keys(): # -d has to be used with -f
+                    print("Graph :\n",graph, end="\n\n")
+                    print("Powerset :\n",powerset, end="\n\n")
+                    print("All admissible extensions :\n",admissible, end="\n\n")
+                    print("All complete extensions :\n", complete, end="\n\n")
+                    print("All stable extensions :\n", stable)
+                
+                if "-p" not in opts.keys():
+                    raise HandleException("Missing parameters, use -p to suplly parameters")
+                else:
+                    if "-a" not in opts.keys():
+                        raise HandleException("No argument supplied. Use -a to supply args")
+                    else:
+                        points = opts["-a"].upper().split(",")
+                        # Checks if all supplied args are in the graph (if list is empty)
+                        if not [x for x in points if x in graph.keys()]: 
+                            raise HandleException("Some arguments are not part of the supplied graph.")
+                        else:
+                            match opts["-p"]:
+                                case "VE-CO":
+                                    return is_complete(graph, set(points))
 
-            case "DC-CO":
-                for elem in complete:
-                    if points in elem:
-                        return True
-                return False
-            
-            case "DS-CO":
-                for elem in complete:
-                    if not points in elem:
-                        return False
-                return True
-            
-            case "VE-ST":
-                return is_stable(graph, set(points.split(",")))
-            
-            case "CD-ST":
-                for elem in stable:
-                    if points in elem:
-                        return True
-                return False
-            
-            case "DS-ST":
-                for elem in stable:
-                    if not points in elem:
-                        return False
-                return True
-            
-            case _:...
+                                case "DC-CO":
+                                    for elem in complete:
+                                        if points in elem:
+                                            return True
+                                    return False
+                                
+                                case "DS-CO":
+                                    for elem in complete:
+                                        if not points in elem:
+                                            return False
+                                    return True
+                                
+                                case "VE-ST":
+                                    return is_stable(graph, set(points))
+                                
+                                case "CD-ST":
+                                    for elem in stable:
+                                        if points in elem:
+                                            return True
+                                    return False
+                                
+                                case "DS-ST":
+                                    for elem in stable:
+                                        if not points in elem:
+                                            return False
+                                    return True
+                                
+                                case _:
+                                    raise HandleException("This mode is unknown. Try using --help,-h")
+                    
+            return -1 # Instead of returning `None` wich would result in printing `NO` (False == None)
+        
+        except HandleException as h:
+            print(h)
+            return -1
+        except Exception as e:
+            print(e)
+            return -1
 
-    elif "-d" or "--debug" in opts.keys():
-        print("Graph :\n",graph, end="\n\n")
-        print("Powerset :\n",powerset, end="\n\n")
-        print("All admissible extensions :\n",admissible, end="\n\n")
-        print("All complete extensions :\n", complete, end="\n\n")
-        print("All stable extensions :\n", stable)
-        return -1 # Instead of returning `None` wich would result in printing `NO`
-            
+    except go.GetoptError as e:
+        print(f"`-{e.opt}` option is unknown ")
+        return -1
 
 def main():
+    # print(dict(getopt(sys.argv[1:] , "p:f:a:dh",["debug"])[0]) )
     if (output := handle_entries()) != -1:
         if output:
             print("YES")
