@@ -2,7 +2,7 @@ import re
 import sys
 import os # used for terminal size
 import getopt as go
-from itertools import combinations
+from itertools import combinations # Used to create powerset
 
 def graph_from_file(filename: str) -> dict:
     """ reads an .apx file and return the according graph """
@@ -34,7 +34,7 @@ def get_subgraph(graph: dict, arg_set: set):
 
 
 def is_defended(graph: dict, arg_set:set, arg:str) -> bool:
-    """ Check whether arg is defended by any of arg_set member """
+    """ Check whether `arg` is defended by any of `arg_set` member """
     attacker = [k for k,v in graph.items() if arg in v]
     for a in arg_set:
         attacker = [x for x in attacker if x not in graph[a]]
@@ -42,7 +42,7 @@ def is_defended(graph: dict, arg_set:set, arg:str) -> bool:
 
 
 def is_admissible(graph: dict, arg_set: set) -> bool:
-    """ Check if a set of args is an admissible extension of graph """
+    """ Check if a `arg_set` is an admissible extension of `graph` """
 
     # Conflict-freeness
     sub_graph = get_subgraph(graph, arg_set)
@@ -128,49 +128,38 @@ def handle_entries():
                         raise HandleException("No argument supplied. Use -a to supply args")
                     else:
                         points = opts["-a"].upper().split(",")
-                        # Checks if all supplied args are in the graph (if list is empty)
-                        if not [x for x in points if x in graph.keys()]: 
+                        # Checks if all supplied args are in the graph.keys()
+                        if not all(x in graph.keys() for x in points): 
                             raise HandleException("Some arguments are not part of the supplied graph.")
                         else:
                             match opts["-p"]:
                                 case "VE-CO":
                                     return is_complete(graph, set(points))
 
-                                case "DC-CO":
-                                    for elem in complete:
-                                        if points in elem:
-                                            return True
-                                    return False
+                                case "DC-CO": # Can be used with multiple args
+                                    # Checks whether all supplied args belongs to at least one complete extension
+                                    return all(any(point in elem for elem in complete) for point in points)
                                 
                                 case "DS-CO":
-                                    for elem in complete:
-                                        if not points in elem:
-                                            return False
-                                    return True
+                                    return all(point in elem for elem in complete for point in points)
                                 
                                 case "VE-ST":
                                     return is_stable(graph, set(points))
                                 
-                                case "CD-ST":
-                                    for elem in stable:
-                                        if points in elem:
-                                            return True
-                                    return False
+                                case "DC-ST": # Can be used with multiple args
+                                    # Checks whether all supplied at least args belongs to one stable extension
+                                    return all(any(point in elem for elem in stable) for point in points)
                                 
                                 case "DS-ST":
-                                    for elem in stable:
-                                        if not points in elem:
-                                            return False
-                                    return True
+                                    return all(point in elem for elem in stable for point in points)
                                 
                                 case _:
-                                    raise HandleException("This mode is unknown. Try using --help,-h")
+                                    raise HandleException("This mode is unknown.")
                     
-            return -1 # Instead of returning `None` wich would result in printing `NO` (False == None)
         
         except HandleException as h:
-            print(h)
-            return -1
+            print(h, " Try using --help,-h")
+            return -1 # Instead of returning `None` wich would result in printing `NO` (False == None)
         except Exception as e:
             print(e)
             return -1
