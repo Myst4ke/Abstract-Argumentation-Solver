@@ -87,9 +87,9 @@ def handle_entries():
     try:
         # Get all the options from command line
         opts = dict(go.getopt(sys.argv[1:] , "p:f:a:dh",["debug", "help"])[0]) 
+        print(opts)
         # print(opts)
         try:
-            
             # Help Menu
             if "-h" in opts.keys() or "--help" in opts.keys():
                     printing = f"\033[1m Help menu\033[0m".center(os.get_terminal_size()[0])+"\n\n" # Centered on terminal width, bold txt
@@ -100,13 +100,12 @@ def handle_entries():
                     printing += "\t\033[1m-a [args]\033[0m : Uses args as a set for the param solver.\n"
                     printing += "\t\033[1m-d, --debug\033[0m : Print graph, powerset, admissible extensions, complete extensions and stable extensions.\n"
                     printing += "\t\033[1m-h, --help\033[0m : Print out the help menu.\n\n"
-                    printing += "Debug usage : python3 main.py -d -f [filepath]\n"
                     printing += "\x1B[3m*Note that options can be passed in any order*\x1B[0m"
                     print(printing)
                     return -1
 
             if "-f" not in opts.keys():
-                raise HandleException("No file supplied, use -f to supply file")
+                raise HandleException("No file supplied, use -f to supply file.")
             else:
                 graph = graph_from_file(opts["-f"])
                 powerset = create_powerset(graph.keys())
@@ -119,13 +118,13 @@ def handle_entries():
                     print("Powerset :\n",powerset, end="\n\n")
                     print("All admissible extensions :\n",admissible, end="\n\n")
                     print("All complete extensions :\n", complete, end="\n\n")
-                    print("All stable extensions :\n", stable)
+                    print("All stable extensions :\n", stable, end="\n\n")
                 
                 if "-p" not in opts.keys():
-                    raise HandleException("Missing parameters, use -p to suplly parameters")
+                    raise HandleException("Missing parameters, use -p to suplly parameters.")
                 else:
                     if "-a" not in opts.keys():
-                        raise HandleException("No argument supplied. Use -a to supply args")
+                        raise HandleException("No argument supplied. Use -a to supply args.")
                     else:
                         points = opts["-a"].upper().split(",")
                         # Checks if all supplied args are in the graph.keys()
@@ -155,22 +154,18 @@ def handle_entries():
                                 
                                 case _:
                                     raise HandleException("This mode is unknown.")
-                    
         
         except HandleException as h:
-            print(h, " Try using --help,-h")
-            return -1 # Instead of returning `None` wich would result in printing `NO` (False == None)
+            print(h, "Try using --help,-h")
         except Exception as e:
             print(e)
-            return -1
 
     except go.GetoptError as e:
-        print(f"`-{e.opt}` option is unknown ")
-        return -1
+        print(f"`-{e.opt}` option is unknown.", "Try using --help,-h")
 
 def main():
     # print(dict(getopt(sys.argv[1:] , "p:f:a:dh",["debug"])[0]) )
-    if (output := handle_entries()) != -1:
+    if type((output := handle_entries())) == bool:
         if output:
             print("YES")
         elif not output:
