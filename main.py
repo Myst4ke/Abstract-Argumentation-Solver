@@ -52,37 +52,30 @@ def is_admissible(graph: dict, arg_set: set) -> bool:
                 return False
             
     # Defense
-    for arg in arg_set:
-        if not is_defended(graph, arg_set, arg):
-            return False
-        
-    return True
+    return all(is_defended(graph, arg_set, arg) for arg in arg_set)
 
 
 def is_complete(graph: dict, arg_set: set) -> bool:
     """ Check if `args_set` is a complete extension of `graph` """
-    defended_args = []
     if is_admissible(graph, arg_set):
-        for key in graph.keys():
-            if is_defended(graph, arg_set, key): # Get all the defended args of the arg_set
-                defended_args += key
-
-    return set(defended_args) == arg_set
+        defended_args = {key for key in graph.keys() if is_defended(graph, arg_set, key)}
+        return defended_args == arg_set
+    return False
 
 
 def is_stable(graph: dict, arg_set: set) -> bool:
     """ Check if `args_set` is a stable extension of `graph` """
-    if is_admissible(graph, arg_set):
-        sub_graph = get_subgraph(graph, arg_set)
-        should_attack = [x for x in graph.keys() if x not in arg_set]
-        attacking = [x for sublist in sub_graph.values() for x in sublist]
-        return set(attacking) == set(should_attack)
+    sub_graph = get_subgraph(graph, arg_set)
+    if is_complete(graph, arg_set):
+        should_attack = {x for x in graph.keys() if x not in arg_set}
+        attacking = {x for sublist in sub_graph.values() for x in sublist}
+        return attacking == should_attack
     return False
 
 # Created to make handleling errors a bit cleaner
 class HandleException(Exception):...
 
-def handle_entries():
+def handle_entries()-> bool|None:
     """ Handle every args from the execution command line """
     try:
         # Get all the options from command line
@@ -102,7 +95,7 @@ def handle_entries():
                     printing += "\t\033[1m-h, --help\033[0m : Print out the help menu.\n\n"
                     printing += "\x1B[3m*Note that options can be passed in any order*\x1B[0m"
                     print(printing)
-                    return -1
+                    return None
 
             if "-f" not in opts.keys():
                 raise HandleException("No file supplied, use -f to supply file.")
@@ -165,7 +158,7 @@ def handle_entries():
 
 def main():
     # print(dict(getopt(sys.argv[1:] , "p:f:a:dh",["debug"])[0]) )
-    if type((output := handle_entries())) == bool:
+    if type((output := handle_entries())) == bool: #Check if return type is not None
         if output:
             print("YES")
         elif not output:
